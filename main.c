@@ -5,6 +5,7 @@
 #include <dirent.h>
 
 #define CHARACTER_SET_SIZE 128
+#define TRIE_PREFIX_SIZE 256
 
 typedef struct TrieNode {
     struct TrieNode *children[CHARACTER_SET_SIZE];
@@ -33,6 +34,7 @@ Trie *initTrie();
 TrieNode *createNode();
 
 void insert(TrieNode *root, char *key);
+void direc_search(DirecTrie *d, char *key);
 void search(Trie *t, char *key);
 void searchHelper(TrieNode *current, Trie *t, int level);
 void printAllWords(TrieNode *root, char *prefix, int level);
@@ -45,8 +47,8 @@ int main() {
     insertFilesInDirectory(d, "/usr/local/bin");
 
     char *partialText = (char*) malloc(sizeof(char) * 50);
-    strcpy(partialText, "/usr/bin/lsb");
-    search(d->trie, partialText);
+    strcpy(partialText, "sta");
+    direc_search(d, partialText); 
 
     if (d->trie->matchesCount == 0) {
         printf("No match found for: \n%s\n", partialText);
@@ -74,7 +76,43 @@ int main() {
         }
     }
 
+    // TODO: free
+
     return 0;
+}
+
+void direc_search(DirecTrie *d, char *key) {
+
+    char** match_tmp = (char**) malloc(sizeof(char*));
+    char* path = (char*)calloc(TRIE_PREFIX_SIZE, sizeof(char));
+    int idx = 0;
+
+    for(int i = 0; i < d->dir_count; i++) {
+        //TODO
+        //snprintf(path, sizeof(path), "%s/%s", d->directory[i], key);
+        strcpy(path, d->directory[i]);
+        if(path[strlen(d->directory[i])-1] != '/') 
+            strcat(path, "/");
+        strcat(path, key);
+        path[strlen(path)]='\0';
+        
+        search(d->trie, path);
+
+        match_tmp = realloc(
+                        match_tmp, sizeof(char*) * (d->trie->matchesCount+idx)
+                    );
+
+        for(int j = 0; j < d->trie->matchesCount; j++) {
+            match_tmp[idx++] = strdup(d->trie->matches[j]);
+        }
+    }
+
+    for(int i = 0; i < d->trie->matchesCount; i++)
+        free(d->trie->matches[i]);
+    free(d->trie->matches);
+
+    d->trie->matches=match_tmp;
+    d->trie->matchesCount=idx;
 }
 
 DirecTrie *initDirecTrie() {
@@ -82,7 +120,7 @@ DirecTrie *initDirecTrie() {
     d->directory = (char**) malloc(sizeof(char*));
 
     d->directory = NULL;
-    d->dir_count = -1;
+    d->dir_count = 0;
     
     d->trie = initTrie();
 
@@ -93,7 +131,7 @@ Trie *initTrie() {
 
     Trie* t = (Trie*) malloc (sizeof(Trie));
 
-    t->prefix = (char*) malloc(sizeof(char) * 256);
+    t->prefix = (char*) malloc(sizeof(char) * TRIE_PREFIX_SIZE);
     t->prefixSize = 0;
 
     t->matches = (char**) malloc(sizeof(char*));
@@ -145,10 +183,11 @@ void insertFilesInDirectory(DirecTrie *d, char *dirPath) {
 
     closedir(directory);
 
-    d->dir_count++;
-    d->directory = realloc(d->directory, (d->dir_count) * sizeof(char*));
+    
+    d->directory = realloc(d->directory, (d->dir_count+1) * sizeof(char*));
     d->directory[d->dir_count] = (char*)malloc(strlen(dirPath) + 1);
     strcpy(d->directory[d->dir_count], dirPath);
+    d->dir_count++;
 }
 
 void insert(TrieNode *root, char *key) {
@@ -177,7 +216,8 @@ void search(Trie *t, char *key) {
             return;
         }
 
-        t->prefix = realloc(t->prefix, (prefixSize + 1) * sizeof(char));
+        if(prefixSize >= TRIE_PREFIX_SIZE)
+            t->prefix = realloc(t->prefix, (prefixSize + 1) * sizeof(char)); // TODO
         if (t->prefix == NULL) {
             perror("realloc");
             exit(EXIT_FAILURE);
