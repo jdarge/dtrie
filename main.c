@@ -32,12 +32,11 @@ DirecTrie *initDirecTrie();
 Trie *initTrie();
 TrieNode *createNode();
 
-void insert(TrieNode *root, const char *key);
-void search(TrieNode *root, const char *key, char *prefix, int count, char **matches);
-void searchHelper(TrieNode *root, char *prefix, int level, int count, char **matches);
+void insert(TrieNode *root, char *key);
+void search(Trie *t, char *key);
+void searchHelper(TrieNode *current, Trie *t, int level);
 void printAllWords(TrieNode *root, char *prefix, int level);
-void freeTrie(TrieNode *root);
-void insertFilesInDirectory(DirecTrie *d, const char *dirPath);
+void insertFilesInDirectory(DirecTrie *d, char *dirPath);
 
 int main() {
 
@@ -47,20 +46,12 @@ int main() {
 
     char *partialText = (char*) malloc(sizeof(char) * 50);
     strcpy(partialText, "/usr/bin/lsb");
-    search(d->trie->root, partialText, d->trie->prefix, d->trie->matchesCount, d->trie->matches);
-    // char *prefix = NULL;
-    // int prefixSize = 0;
-    // char **matches = NULL;
-    // int matchesCount = 0;
-    // search(d->trie->root, partialText, &prefix, &matchesCount, &matches);
-
-    char tmp[100];
-    printAllWords(d->trie->root, tmp, 0);
+    search(d->trie, partialText);
 
     if (d->trie->matchesCount == 0) {
-        printf("No match found for: %s\n", partialText);
+        printf("No match found for: \n%s\n", partialText);
     } else if (d->trie->matchesCount == 1) {
-        printf("Match found: %s\n", d->trie->matches[0]);
+        printf("Match found: \n%s\n", d->trie->matches[0]);
     } else {
         printf("Multiple matches found:\n");
         for (int i = 0; i < d->trie->matchesCount; i++) {
@@ -68,28 +59,20 @@ int main() {
         }
     }
 
-    // matchesCount = 0;
-    // strcpy(partialText, "/usr/local/bin/timer");
-    // search(root, partialText, &prefix, &matchesCount, &matches);
+    d->trie->matchesCount = 0;
+    strcpy(partialText, "/usr/local/bin/timer");
+    search(d->trie, partialText);
 
-    // if (matchesCount == 0) {
-    //     printf("No match found for:\n%s\n", partialText);
-    // } else if (matchesCount == 1) {
-    //     printf("Match found:\n%s\n", matches[0]);
-    // } else {
-    //     printf("Multiple matches found:\n");
-    //     for (int i = 0; i < matchesCount; i++) {
-    //         printf("%s\n", matches[i]);
-    //     }
-    // }
-
-    // free(prefix);
-    // for (int i = 0; i < matchesCount; i++) {
-    //     free(matches[i]);
-    // }
-    // free(matches);
-
-    // freeTrie(root);
+    if (d->trie->matchesCount == 0) {
+        printf("No match found for: \n%s\n", partialText);
+    } else if (d->trie->matchesCount == 1) {
+        printf("Match found: \n%s\n", d->trie->matches[0]);
+    } else {
+        printf("Multiple matches found:\n");
+        for (int i = 0; i < d->trie->matchesCount; i++) {
+            printf("%s\n", d->trie->matches[i]);
+        }
+    }
 
     return 0;
 }
@@ -99,7 +82,7 @@ DirecTrie *initDirecTrie() {
     d->directory = (char**) malloc(sizeof(char*));
 
     d->directory = NULL;
-    d->dir_count = 0;
+    d->dir_count = -1;
     
     d->trie = initTrie();
 
@@ -138,7 +121,7 @@ TrieNode *createNode() {
     return node;
 }
 
-void insertFilesInDirectory(DirecTrie *d, const char *dirPath) {
+void insertFilesInDirectory(DirecTrie *d, char *dirPath) {
     DIR *directory;
     struct dirent *entry;
 
@@ -162,13 +145,13 @@ void insertFilesInDirectory(DirecTrie *d, const char *dirPath) {
 
     closedir(directory);
 
-    d->directory = realloc(d->directory, (d->dir_count + 1) * sizeof(char*));
+    d->dir_count++;
+    d->directory = realloc(d->directory, (d->dir_count) * sizeof(char*));
     d->directory[d->dir_count] = (char*)malloc(strlen(dirPath) + 1);
     strcpy(d->directory[d->dir_count], dirPath);
-    d->dir_count++;
 }
 
-void insert(TrieNode *root, const char *key) {
+void insert(TrieNode *root, char *key) {
     TrieNode *current = root;
     int len = strlen(key);
 
@@ -183,8 +166,8 @@ void insert(TrieNode *root, const char *key) {
     current->isEndOfWord = true;
 }
 
-void search(TrieNode *root, const char *key, char *prefix, int count, char **matches) {
-    TrieNode *current = root;
+void search(Trie *t, char *key) {
+    TrieNode *current = t->root;
     int len = strlen(key);
     int prefixSize = len;
 
@@ -194,38 +177,38 @@ void search(TrieNode *root, const char *key, char *prefix, int count, char **mat
             return;
         }
 
-        prefix = realloc(prefix, (prefixSize + 1) * sizeof(char));
-        if (prefix == NULL) {
+        t->prefix = realloc(t->prefix, (prefixSize + 1) * sizeof(char));
+        if (t->prefix == NULL) {
             perror("realloc");
             exit(EXIT_FAILURE);
         }
 
-        prefix[level] = key[level];
-        prefix[level + 1] = '\0';
+        t->prefix[level] = key[level];
+        t->prefix[level + 1] = '\0';
 
         current = current->children[index];
     }
 
-    searchHelper(current, prefix, len, count, matches);
+    searchHelper(current, t, len);
 }
 
-void searchHelper(TrieNode *root, char *prefix, int level, int count, char **matches) {
-    if (root->isEndOfWord) {
-        *matches = realloc(*matches, (count + 1) * sizeof(char *));
-        if (*matches == NULL) {
+void searchHelper(TrieNode *current, Trie *t, int level) {
+    if (current->isEndOfWord) {
+        t->matches = realloc(t->matches, (t->matchesCount + 1) * sizeof(char *));
+        if (t->matches == NULL) {
             perror("realloc");
             exit(EXIT_FAILURE);
         }
 
-        (*matches)[count] = strdup(prefix);
-        count++;
+        t->matches[t->matchesCount] = strdup(t->prefix);
+        t->matchesCount++;
     }
 
     for (int i = 0; i < CHARACTER_SET_SIZE; i++) {
-        if (root->children[i]) {
-            prefix[level] = i;
-            searchHelper(root->children[i], prefix, level + 1, count, matches);
-            prefix[level] = '\0'; 
+        if (current->children[i]) {
+            t->prefix[level] = i;
+            searchHelper(current->children[i], t, level + 1);
+            t->prefix[level] = '\0'; 
         }
     }
 }
@@ -243,16 +226,4 @@ void printAllWords(TrieNode *root, char *prefix, int level) {
             printAllWords(root->children[i], prefix, level + 1);
         }
     }
-}
-
-void freeTrie(TrieNode *root) {
-    if (root == NULL) {
-        return;
-    }
-
-    for (int i = 0; i < CHARACTER_SET_SIZE; i++) {
-        freeTrie(root->children[i]);
-    }
-
-    free(root);
 }
