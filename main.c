@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <dirent.h>
+#include "leak_detector_c.h"
 
 #define CHARACTER_SET_SIZE 128
 #define TRIE_PREFIX_SIZE 256
@@ -14,17 +15,14 @@ typedef struct TrieNode {
 
 typedef struct Trie {
     struct TrieNode *root;
-
     char *prefix;
     int prefixSize;
-
     char **matches;
     int matchesCount;
 } Trie;
 
 typedef struct DirecTrie {
     struct Trie *trie;
-
     char** directory;
     int dir_count;
 } DirecTrie;
@@ -39,8 +37,11 @@ void search(Trie *t, char *key);
 void searchHelper(TrieNode *current, Trie *t, int level);
 void printAllWords(TrieNode *root, char *prefix, int level);
 void insertFilesInDirectory(DirecTrie *d, char *dirPath);
+void freeTrie(TrieNode *root);
 
 int main() {
+
+    atexit(report_mem_leak);
 
     DirecTrie* d = initDirecTrie();
     insertFilesInDirectory(d, "/usr/bin");
@@ -77,6 +78,22 @@ int main() {
     }
 
     // TODO: free
+    free(partialText);
+
+    freeTrie(d->trie->root);
+
+    for (int i = 0; i < d->trie->matchesCount; i++) {
+        free(d->trie->matches[i]);
+    } 
+    free(d->trie->matches);
+    free(d->trie->prefix);
+    free(d->trie);
+
+    for(int i = 0; i < d->dir_count; i++) {
+        free(d->directory[i]);
+    }
+    free(d->directory);
+    free(d);
 
     return 0;
 }
@@ -111,11 +128,14 @@ void direc_search(DirecTrie *d, char *key) {
         free(d->trie->matches[i]);
     free(d->trie->matches);
 
+    free(path);
+
     d->trie->matches=match_tmp;
     d->trie->matchesCount=idx;
 }
 
 DirecTrie *initDirecTrie() {
+
     DirecTrie *d = (DirecTrie*) malloc(sizeof(DirecTrie));
     d->directory = (char**) malloc(sizeof(char*));
 
@@ -132,6 +152,7 @@ Trie *initTrie() {
     Trie* t = (Trie*) malloc (sizeof(Trie));
 
     t->prefix = (char*) malloc(sizeof(char) * TRIE_PREFIX_SIZE);
+    t->prefix[0] = '\0';
     t->prefixSize = 0;
 
     t->matches = (char**) malloc(sizeof(char*));
@@ -160,6 +181,7 @@ TrieNode *createNode() {
 }
 
 void insertFilesInDirectory(DirecTrie *d, char *dirPath) {
+
     DIR *directory;
     struct dirent *entry;
 
@@ -191,6 +213,7 @@ void insertFilesInDirectory(DirecTrie *d, char *dirPath) {
 }
 
 void insert(TrieNode *root, char *key) {
+
     TrieNode *current = root;
     int len = strlen(key);
 
@@ -206,6 +229,7 @@ void insert(TrieNode *root, char *key) {
 }
 
 void search(Trie *t, char *key) {
+
     TrieNode *current = t->root;
     int len = strlen(key);
     int prefixSize = len;
@@ -233,6 +257,7 @@ void search(Trie *t, char *key) {
 }
 
 void searchHelper(TrieNode *current, Trie *t, int level) {
+
     if (current->isEndOfWord) {
         t->matches = realloc(t->matches, (t->matchesCount + 1) * sizeof(char *));
         if (t->matches == NULL) {
@@ -266,4 +291,16 @@ void printAllWords(TrieNode *root, char *prefix, int level) {
             printAllWords(root->children[i], prefix, level + 1);
         }
     }
+}
+
+void freeTrie(TrieNode *root) {
+    if (root == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < CHARACTER_SET_SIZE; i++) {
+        freeTrie(root->children[i]);
+    }
+
+    free(root);
 }
