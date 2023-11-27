@@ -3,10 +3,12 @@
 #include <stdbool.h>
 #include <string.h>
 #include <dirent.h>
-#include "leak_detector_c.h"
+
+// #include "leak_detector_c.h"
 
 #define CHARACTER_SET_SIZE 128
 #define TRIE_PREFIX_SIZE 256
+#define TRIE_MATCHES_SIZE 256
 
 typedef struct TrieNode {
     struct TrieNode *children[CHARACTER_SET_SIZE];
@@ -19,6 +21,7 @@ typedef struct Trie {
     int prefixSize;
     char **matches;
     int matchesCount;
+    int matchesSize;
 } Trie;
 
 typedef struct DirecTrie {
@@ -41,7 +44,7 @@ void freeTrie(TrieNode *root);
 
 int main() {
 
-    atexit(report_mem_leak);
+    // atexit(report_mem_leak);
 
     DirecTrie* d = initDirecTrie();
     insertFilesInDirectory(d, "/usr/bin");
@@ -62,9 +65,8 @@ int main() {
         }
     }
 
-    d->trie->matchesCount = 0;
-    strcpy(partialText, "/usr/local/bin/timer");
-    search(d->trie, partialText);
+    strcpy(partialText, "lsb");
+    direc_search(d, partialText); 
 
     if (d->trie->matchesCount == 0) {
         printf("No match found for: \n%s\n", partialText);
@@ -82,7 +84,7 @@ int main() {
 
     freeTrie(d->trie->root);
 
-    for (int i = 0; i < d->trie->matchesCount; i++) {
+    for (int i = 0; i < d->trie->matchesSize*TRIE_MATCHES_SIZE; i++) {
         free(d->trie->matches[i]);
     } 
     free(d->trie->matches);
@@ -100,13 +102,12 @@ int main() {
 
 void direc_search(DirecTrie *d, char *key) {
 
-    char** match_tmp = (char**) malloc(sizeof(char*));
     char* path = (char*)calloc(TRIE_PREFIX_SIZE, sizeof(char));
     int idx = 0;
+    d->trie->matchesCount = 0;
 
     for(int i = 0; i < d->dir_count; i++) {
         //TODO
-        //snprintf(path, sizeof(path), "%s/%s", d->directory[i], key);
         strcpy(path, d->directory[i]);
         if(path[strlen(d->directory[i])-1] != '/') 
             strcat(path, "/");
@@ -114,30 +115,14 @@ void direc_search(DirecTrie *d, char *key) {
         path[strlen(path)]='\0';
         
         search(d->trie, path);
-
-        match_tmp = realloc(
-                        match_tmp, sizeof(char*) * (d->trie->matchesCount+idx)
-                    );
-
-        for(int j = 0; j < d->trie->matchesCount; j++) {
-            match_tmp[idx++] = strdup(d->trie->matches[j]);
-        }
     }
 
-    for(int i = 0; i < d->trie->matchesCount; i++)
-        free(d->trie->matches[i]);
-    free(d->trie->matches);
-
     free(path);
-
-    d->trie->matches=match_tmp;
-    d->trie->matchesCount=idx;
 }
 
 DirecTrie *initDirecTrie() {
 
     DirecTrie *d = (DirecTrie*) malloc(sizeof(DirecTrie));
-    d->directory = (char**) malloc(sizeof(char*));
 
     d->directory = NULL;
     d->dir_count = 0;
@@ -151,12 +136,14 @@ Trie *initTrie() {
 
     Trie* t = (Trie*) malloc (sizeof(Trie));
 
-    t->prefix = (char*) malloc(sizeof(char) * TRIE_PREFIX_SIZE);
-    t->prefix[0] = '\0';
-    t->prefixSize = 0;
+    t->prefix = (char*)malloc((TRIE_PREFIX_SIZE + 1) * sizeof(char));
+    memset(t->prefix, '\0', (TRIE_PREFIX_SIZE + 1) * sizeof(char));
 
-    t->matches = (char**) malloc(sizeof(char*));
+    t->prefixSize = TRIE_PREFIX_SIZE;
+
+    t->matches = (char**) malloc(sizeof(char*) * TRIE_MATCHES_SIZE);//TODO
     t->matchesCount = 0;
+    t->matchesSize = 1;
 
     t->root = createNode();
 
@@ -259,7 +246,9 @@ void search(Trie *t, char *key) {
 void searchHelper(TrieNode *current, Trie *t, int level) {
 
     if (current->isEndOfWord) {
-        t->matches = realloc(t->matches, (t->matchesCount + 1) * sizeof(char *));
+        if(t->matchesCount+1 >= TRIE_MATCHES_SIZE * t->matchesSize) {
+            t->matches = realloc(t->matches, (++t->matchesSize * TRIE_MATCHES_SIZE) * sizeof(char *));
+        }
         if (t->matches == NULL) {
             perror("realloc");
             exit(EXIT_FAILURE);
@@ -304,3 +293,36 @@ void freeTrie(TrieNode *root) {
 
     free(root);
 }
+
+// void direc_search(DirecTrie *d, char *key) {
+
+//     char** match_tmp = (char**) malloc(sizeof(char*));
+//     char* path = (char*)calloc(TRIE_PREFIX_SIZE, sizeof(char));
+//     int idx = 0;
+
+//     for(int i = 0; i < d->dir_count; i++) {
+//         //TODO
+//         strcpy(path, d->directory[i]);
+//         if(path[strlen(d->directory[i])-1] != '/') 
+//             strcat(path, "/");
+//         strcat(path, key);
+//         path[strlen(path)]='\0';
+        
+//         search(d->trie, path);
+
+//         match_tmp = realloc(match_tmp, sizeof(char*) * (d->trie->matchesCount+idx));
+
+//         for(int j = 0; j < d->trie->matchesCount; j++) {
+//             match_tmp[idx++] = strdup(d->trie->matches[j]);
+//         }
+//     }
+
+//     for(int i = 0; i < d->trie->matchesCount; i++)
+//         free(d->trie->matches[i]);
+//     free(d->trie->matches);
+
+//     free(path);
+
+//     d->trie->matches=match_tmp;
+//     d->trie->matchesCount=idx;
+// }
