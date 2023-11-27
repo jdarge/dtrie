@@ -79,7 +79,6 @@ int main() {
         }
     }
 
-    // TODO: free
     free(partialText);
 
     freeTrie(d->trie->root);
@@ -107,7 +106,6 @@ void direc_search(DirecTrie *d, char *key) {
     d->trie->matchesCount = 0;
 
     for(int i = 0; i < d->dir_count; i++) {
-        //TODO
         strcpy(path, d->directory[i]);
         if(path[strlen(d->directory[i])-1] != '/') 
             strcat(path, "/");
@@ -141,7 +139,7 @@ Trie *initTrie() {
 
     t->prefixSize = TRIE_PREFIX_SIZE;
 
-    t->matches = (char**) malloc(sizeof(char*) * TRIE_MATCHES_SIZE);//TODO
+    t->matches = (char**) malloc(sizeof(char*) * TRIE_MATCHES_SIZE);
     t->matchesCount = 0;
     t->matchesSize = 1;
 
@@ -228,7 +226,7 @@ void search(Trie *t, char *key) {
         }
 
         if(prefixSize >= TRIE_PREFIX_SIZE)
-            t->prefix = realloc(t->prefix, (prefixSize + 1) * sizeof(char)); // TODO
+            t->prefix = realloc(t->prefix, (prefixSize + 1) * sizeof(char));
         if (t->prefix == NULL) {
             perror("realloc");
             exit(EXIT_FAILURE);
@@ -293,36 +291,3 @@ void freeTrie(TrieNode *root) {
 
     free(root);
 }
-
-// void direc_search(DirecTrie *d, char *key) {
-
-//     char** match_tmp = (char**) malloc(sizeof(char*));
-//     char* path = (char*)calloc(TRIE_PREFIX_SIZE, sizeof(char));
-//     int idx = 0;
-
-//     for(int i = 0; i < d->dir_count; i++) {
-//         //TODO
-//         strcpy(path, d->directory[i]);
-//         if(path[strlen(d->directory[i])-1] != '/') 
-//             strcat(path, "/");
-//         strcat(path, key);
-//         path[strlen(path)]='\0';
-        
-//         search(d->trie, path);
-
-//         match_tmp = realloc(match_tmp, sizeof(char*) * (d->trie->matchesCount+idx));
-
-//         for(int j = 0; j < d->trie->matchesCount; j++) {
-//             match_tmp[idx++] = strdup(d->trie->matches[j]);
-//         }
-//     }
-
-//     for(int i = 0; i < d->trie->matchesCount; i++)
-//         free(d->trie->matches[i]);
-//     free(d->trie->matches);
-
-//     free(path);
-
-//     d->trie->matches=match_tmp;
-//     d->trie->matchesCount=idx;
-// }
