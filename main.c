@@ -252,8 +252,9 @@ void searchHelper(TrieNode *current, Trie *t, int level) {
             exit(EXIT_FAILURE);
         }
 
-        t->matches[t->matchesCount] = strdup(t->prefix);
-        t->matchesCount++;
+        if(t->matches[t->matchesCount])
+            free(t->matches[t->matchesCount]);
+        t->matches[t->matchesCount++] = strdup(t->prefix); // mem leak (valgrind)
     }
 
     for (int i = 0; i < CHARACTER_SET_SIZE; i++) {
