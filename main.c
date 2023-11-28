@@ -4,8 +4,6 @@
 #include <string.h>
 #include <dirent.h>
 
-// #include "leak_detector_c.h"
-
 #define CHARACTER_SET_SIZE 128
 #define TRIE_PREFIX_SIZE 256
 #define TRIE_MATCHES_SIZE 256
@@ -43,8 +41,6 @@ void insertFilesInDirectory(DirecTrie *d, char *dirPath);
 void freeTrie(TrieNode *root);
 
 int main() {
-
-    // atexit(report_mem_leak);
 
     DirecTrie* d = initDirecTrie();
     insertFilesInDirectory(d, "/usr/bin");
